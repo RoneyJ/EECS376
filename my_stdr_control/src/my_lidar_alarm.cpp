@@ -8,8 +8,8 @@
 #include <cmath>
 #include <math.h>
 
-const double MIN_SAFE_DISTANCE = 1.0; // set alarm if anything is within 0.5m of the front of robot
-const double MIN_SAFE_WIDTH = 0.3; 
+const double MIN_SAFE_DISTANCE = 1.0; //minimum safe distance allowed for objects ahead of robot
+const double MIN_SAFE_WIDTH = 0.3; //minimum safe distance for objects to the side of robot
 
 // these values to be set within the laser callback
 float ping_dist_in_front_=3.0; // global var to hold length of a SINGLE LIDAR ping--in front
@@ -73,7 +73,7 @@ void laserCallback(const sensor_msgs::LaserScan& laser_scan) {
    lidar_alarm_msg.data = laser_alarm_;
    lidar_alarm_publisher_.publish(lidar_alarm_msg);
    
-   // publish distance to alarming point
+   // publish index of alarming ping
    std_msgs::Float32 lidar_ind_msg;
    lidar_ind_msg.data = ping_index_ - temp_index;
    lidar_index_publisher_.publish(lidar_ind_msg);   
