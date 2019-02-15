@@ -7,8 +7,9 @@
 #include <std_msgs/Bool.h> // boolean message 
 #include <cmath>
 #include <math.h>
+#include <std_srvs/Trigger.h>
 
-const double MIN_SAFE_DISTANCE = 1.0; // set alarm if anything is within 0.5m of the front of robot
+const double MIN_SAFE_DISTANCE = 2.0; // set alarm if anything is within 0.5m of the front of robot
 const double MIN_SAFE_WIDTH = 0.3; 
 
 // these values to be set within the laser callback
@@ -21,13 +22,19 @@ double range_min_ = 0.0;
 double range_max_ = 0.0;
 int num_points = 0;
 bool laser_alarm_=false;
+bool srvcall = false;
 int index_diff = 0; // difference from ping_index needed to be checked (for the width and height)
 
 ros::Publisher lidar_alarm_publisher_;
 ros::Publisher lidar_dist_publisher_;
 ros::Publisher lidar_index_publisher_;
-// really, do NOT want to depend on a single ping.  Should consider a subset of pings
-// to improve reliability and avoid false alarms or failure to see an obstacle
+
+//Service clients for the e-stop service
+ros::ServiceClient estop_client_;
+std_srvs::Trigger estop_srv_;
+
+ros::ServiceClient estop_clear_client_;
+std_srvs::Trigger estop_clear_srv_;
 
 void laserCallback(const sensor_msgs::LaserScan& laser_scan) {
     if (ping_index_<0)  {
@@ -65,18 +72,33 @@ void laserCallback(const sensor_msgs::LaserScan& laser_scan) {
     laser_alarm_ = temp_alarm;
    
    
-   ping_dist_in_front_ = laser_scan.ranges[ping_index_];
-   ROS_INFO("ping dist in front = %f",ping_dist_in_front_);
+    ping_dist_in_front_ = laser_scan.ranges[ping_index_];
+    ROS_INFO("ping dist in front = %f",ping_dist_in_front_);
    
-   // publish alarm
-   std_msgs::Bool lidar_alarm_msg;
-   lidar_alarm_msg.data = laser_alarm_;
-   lidar_alarm_publisher_.publish(lidar_alarm_msg);
+    // publish alarm
+    std_msgs::Bool lidar_alarm_msg;
+    lidar_alarm_msg.data = laser_alarm_;
+    lidar_alarm_publisher_.publish(lidar_alarm_msg);
    
-   // publish distance to alarming point
-   std_msgs::Float32 lidar_ind_msg;
-   lidar_ind_msg.data = ping_index_ - temp_index;
-   lidar_index_publisher_.publish(lidar_ind_msg);   
+    // publish distance to alarming point
+    std_msgs::Float32 lidar_ind_msg;
+    lidar_ind_msg.data = ping_index_ - temp_index;
+    lidar_index_publisher_.publish(lidar_ind_msg); 
+
+    //**Edit for PS4**
+    //trigger estop when lidar alarm is triggered
+    //clear the estop when lidar alarm is clear
+    if(!laser_alarm_ && srvcall){
+	estop_clear_client_.call(estop_clear_srv_);
+	srvcall = false;
+	ROS_WARN("Path clear: cancelling e-stop");
+    }
+
+    if(laser_alarm_ && !srvcall){
+	estop_client_.call(estop_srv_);
+	srvcall = true;
+	ROS_WARN("Obstacle detected! E-stop triggered!");
+    }
 }
 
 int main(int argc, char **argv) {
@@ -89,7 +111,11 @@ int main(int argc, char **argv) {
     lidar_dist_publisher_ = pub2;
     ros::Publisher pub3 = nh.advertise<std_msgs::Float32>("lidar_index", 1);  
     lidar_index_publisher_ = pub3;
-    ros::Subscriber lidar_subscriber = nh.subscribe("robot0/laser_0", 1, laserCallback);
+    ros::Subscriber lidar_subscriber = nh.subscribe("/scan", 1, laserCallback);
+
+    estop_client_ = nh.serviceClient<std_srvs::TriggerRequest>("estop_service");
+    estop_clear_client_ = nh.serviceClient<std_srvs::TriggerRequest>("clear_estop_service");
+
     ros::spin(); //this is essentially a "while(1)" statement, except it
     // forces refreshing wakeups upon new data arrival
     // main program essentially hangs here, but it must stay alive to keep the callback function alive

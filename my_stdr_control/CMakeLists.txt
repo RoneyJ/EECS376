@@ -36,6 +36,8 @@ catkin_simple()
 cs_add_executable(my_stdr_open_loop_commander src/my_stdr_open_loop_commander.cpp)
 cs_add_executable(my_lidar_alarm src/my_lidar_alarm.cpp)
 cs_add_executable(my_reactive_commander src/my_reactive_commander.cpp)
+cs_add_executable(my_wall_follower src/my_wall_follower.cpp)
+cs_add_executable(new_lidar_alarm src/new_lidar_alarm.cpp)
 
 #the following is required, if desire to link a node in this package with a library created in this same package
 # edit the arguments to reference the named node and named library within this package
